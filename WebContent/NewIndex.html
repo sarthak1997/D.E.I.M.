@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>Insert title here</title>
+
+<style type="text/css">
+	
+	.button {
+    display: inline;
+    width: 115px;
+    height: 100px;
+    background: #4E9CAF;
+    padding: 10px;
+    text-align: center;
+    border-radius: 5px;
+    color: white;
+    font-weight: bold;
+    font-family: sans-serif;
+}
+</style>
+
+<script type="text/javascript">
+
+	var socket = new WebSocket("ws://localhost:8080/DirectoryIntegrityManager/action");
+	setTimeout(function() {
+		
+		socket.send("hi");
+	}, 3000);
+	
+	console.log(socket);
+	socket.onmessage=function processMessage(message){
+		var jsonData=JSON.parse(message);
+		console.log(jsonData);
+		
+	}
+	socket.onopen = function() {
+        console.log("connection opened");
+    };
+    socket.onclose = function() {
+        console.log("connection closed");
+    };
+    socket.onerror = function wserror(message) {
+        console.log("error: " + message);
+    };
+	var j=0;
+
+	function getXmlHttpRequestObject() {
+		var xmlHttpReq;
+
+		if (window.XMLHttpRequest) {
+			request = new window.XMLHttpRequest();
+		} else if (window.ActiveXObject) {
+			request = new window.ActiveXObject();
+		} else {
+			request = null;
+		}
+		return request;
+	}
+
+	function setPathResource() {
+
+		var path = document.getElementById("path").value;
+		if (path.trim() == "") {
+			//empty input
+		} else {
+			console.log(path);
+			request = getXmlHttpRequestObject();
+			request.onreadystatechange = notifyIndexed;
+			request.open("post", "path", true);
+			request.setRequestHeader("Content-Type",
+					"application/x-www-form-urlencoded");
+			request.send("path=" + path);
+		}
+
+	}
+
+	function notifyIndexed() {
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			var bar1 = document.getElementById("notification");
+			bar1.style.display = "block";
+			bar1.innerHTML = "Folder Indexed";
+			setTimeout(function() {
+				bar1.style.display = "none";
+			}, 3000);
+			var bar= document.getElementById("indexedfolderslist");
+
+			var json=JSON.parse(request.responseText);
+
+			for(i in json["map"])
+				bar.innerHTML+="<a class=\"button indexedpaths\" style=\"background-color : #4E9CAF\"  title=\""+json["map"][i]+"\" onclick=\"setSelect("+(j++)+")\" >"+ json["map"][i].substr(json["map"][i].lastIndexOf('\\')+1) +"</a> &nbsp;";
+
+		} else
+			console.log("not found");
+	}
+
+	function setIndexFileResource() {
+
+		var path = document.getElementById("indexfilepath").value;
+		if (path.trim() == "") {
+			//empty input
+		} else {
+			console.log(path);
+			request = getXmlHttpRequestObject();
+			request.onreadystatechange = notifyPathSet;
+			request.open("post", "indexfilepath", true);
+			request.setRequestHeader("Content-Type",
+					"application/x-www-form-urlencoded");
+			request.send("indexfilepath=" + path);
+		}
+
+	}
+
+	function notifyPathSet() {
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			var bar = document.getElementById("notification");
+			bar.style.display = "block";
+			bar.innerHTML = "Now your indexes will be stored at your specified location";
+			setTimeout(function() {
+				bar.style.display = "none";
+			}, 3000);
+
+		} else
+			console.log("not found");
+	}
+	
+	function setFoldersResource()
+	{
+		console.log("called");
+		request = getXmlHttpRequestObject();
+		request.onreadystatechange = showFolders;
+		request.open("post", "onload", true);
+		request.setRequestHeader("Content-Type",
+				"application/x-www-form-urlencoded");
+		request.send();
+	}
+	
+	function showFolders()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			var data=request.responseText;
+			console.log(request.responseText);
+			var bar = document.getElementById("indexedfolderslist");
+			var json=JSON.parse(data);
+			
+			var i =json["map"];
+			
+			//console.log(i["path0"]);
+			
+			
+			
+			for(i in json["map"])
+			{
+				bar.innerHTML+="<a class=\"button indexedpaths\" style=\"background-color : #4E9CAF\" title=\""+json["map"][i]+"\" onclick=\"setSelect("+(j++)+")\" >"+ json["map"][i].substr(json["map"][i].lastIndexOf('\\')+1) +"</a> &nbsp;";
+			}
+
+			//bar.innerHTML += "<a>";
+
+		} else
+			console.log("not found");
+	}
+	var map=new Map();
+	function setSelect(i)
+	{
+		var folder=document.getElementsByClassName("indexedpaths");
+		console.log(folder[i].style.backgroundColor);
+		if(!map.has(folder[i].title))
+			{
+				folder[i].style.background="#f00000";
+				map.set(folder[i].title,folder[i].title);
+			}
+		else
+			{
+				folder[i].style.background="#4E9CAF"
+				map.delete(folder[i].title);
+			}
+	}
+	
+	function removeFolder(i)
+	{
+		var element = document.getElementById(i);
+	    element.parentNode.removeChild(element);
+	    map.delete(i);
+	}
+
+	function fetchList()
+	{
+
+		if (map.size===0) {
+			alert("0 folder(s) selected");
+			//empty input
+		} else {
+			
+			var jsonStr={};
+			var jsonVar={};
+			var jsonArr=[];
+			console.log(map.size);
+			map.forEach((value,key) => {
+				
+				var entity = {"path" : value};
+				jsonArr.push(entity);
+			});
+			
+			jsonArr=JSON.stringify({
+				'selPaths':jsonArr
+			});
+			
+			/*jsonVAR["selPaths"]=jsonStr;
+			jsonStr=JSON.stringify(jsonVAR);
+			console.log(jsonStr);
+			
+			console.log(jsonStr);*/
+			request = getXmlHttpRequestObject();
+		  	request.onreadystatechange = showList;
+			request.open("post", "filesList",true);
+			request.setRequestHeader("Content-Type","application/json");
+			
+			request.send(jsonArr);
+		}
+
+	}
+	
+	function showList()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			var resJson=JSON.parse(request.responseText);
+			var resArr=resJson["result"];
+			var table=document.getElementById("folderList");
+			
+			console.log(resArr);
+			//use it in ui template
+			
+
+		} else
+			console.log("not found");
+	}
+	
+	function fetchSubList(path)
+	{
+		//extract element using path as id
+		request = getXmlHttpRequestObject();
+	  	request.onreadystatechange = showSubList;
+		request.open("post", "subFilesList", true);
+		request.setRequestHeader("Content-Type",
+		"application/x-www-form-urlencoded");
+		request.send("path=" + path);
+	}
+	
+	function showSubList()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			
+			//use it in ui template
+		} else
+			console.log("not found");
+	}
+	
+	function addStopWord()
+	{
+		var word=document.getElementById("word");
+		var wordVal=word.value;
+		request = getXmlHttpRequestObject();
+	  	request.onreadystatechange = notifyStatus;
+		request.open("post", "stopword", true);
+		request.setRequestHeader("Content-Type",
+		"application/x-www-form-urlencoded");
+		request.send("word=" + wordVal);
+	}
+	
+	function notifyStatus()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			
+			//use it in ui template
+		} else
+			console.log("not found");
+	}
+	
+</script>
+
+</head>
+<body onload="setFoldersResource();">
+	
+	<div id="notification" style="display: none; color: orange;"></div>
+
+	<form id="pathForIndex"
+		onsubmit="event.preventDefault(); setPathResource();">
+		<input type="text" size=100 name="path" id="path"> <input
+			type="submit" name="submit" value="Index Path">
+	</form>
+
+
+	<form id="indexFileLocation"
+		onsubmit="event.preventDefault(); setIndexFileResource();">
+		<input type="text" name="indexfilepath" id="indexfilepath"> <input
+			type="submit" name="submit" value="submit">
+	</form>
+	
+	<br><br>
+
+
+	<h3><strong>Choose folders to list files</strong></h3>
+
+
+	<div id="indexedfolderslist">
+		
+	</div>
+	
+	<br><br>	
+
+	<div style="display:inline" id="selectedfolders"> </div> <a class="button" href="#" style="font-family: robotica;text-decoration: none;" id="getFilesList" onclick="fetchList();" >LIST SELECTED FOLDERS</a>
+	
+	<table id="folderList">
+		
+	</table>
+	
+	
+
+</body>
+</html>

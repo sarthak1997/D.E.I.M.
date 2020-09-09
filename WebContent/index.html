@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>DIM</title>
+
+<script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script
+	src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+<script
+	src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+<script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
+<script src= "https://cdn.zingchart.com/zingchart.min.js"></script>
+<script> zingchart.MODULESDIR = "https://cdn.zingchart.com/modules/";
+		ZC.LICENSE = ["569d52cefae586f634c54f86dc99e6a9","ee6b7db5b51705a13dc2339db3edaf6d"];</script>
+
+
+<link rel="stylesheet"
+	href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+<link rel="stylesheet"
+	href="https://use.fontawesome.com/releases/v5.2.0/css/all.css">
+
+
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons"
+	rel="stylesheet">
+
+<style type="text/css">
+
+
+.canvasjs-chart-credit {
+	display: none;
+}
+
+.indexedFolders {
+	color: #007bff;
+	font-size: 1rem;
+	font-weight: 400;
+}
+
+.customDrop {
+	min-width: 25rem;
+	border: 0 none;
+	margin-top: 0.55rem;
+	margin-left: -5rem;
+}
+
+.customDrop2 {
+	min-width: 19rem;
+	border: 0 none;
+	margin-top: 0.8rem;
+	margin-left: -12rem;
+}
+
+a:hover {
+	color: #0056b3;
+	text-decoration: none;
+}
+
+.breadcrumb {
+	display: -webkit-box;
+	display: -ms-flexbox;
+	display: flex;
+	-ms-flex-wrap: wrap;
+	flex-wrap: wrap;
+	padding: .75rem 1.6rem;
+	margin-bottom: 1rem;
+	list-style: none;
+	background-color: #e9ecef;
+	border-radius: .25rem;
+}
+
+.note {
+	position: relative;
+	font-size: 24px;
+	color: grey;
+	cursor: pointer;
+}
+
+i.fa-circle {
+	position: absolute;
+	font-size: 0.7em;
+	top: -4px;
+	color: #22a3e3;
+	right: -4px;
+}
+
+span.num {
+	position: absolute;
+	font-size: 0.9em;
+	top: 0px;
+	color: white;
+	right: 4px;
+}
+
+.table td, .table th {
+	padding: 1rem;
+	vertical-align: top;
+	border-top: 1px solid #dee2e6;
+}
+
+.dropdown-toggle::after {
+	display: none;
+	width: 0;
+	height: 0;
+	margin-left: .255em;
+	vertical-align: .255em;
+	content: "";
+	border-top: .3em solid;
+	border-right: .3em solid transparent;
+	border-bottom: 0;
+	border-left: .3em solid transparent;
+}
+
+.customDrop3 {
+	margin-left: -70px;
+	min-width: 7rem;
+}
+
+.customDrop3 a:hover {
+	background-color: #78d7fdc7;
+}
+
+
+
+</style>
+
+
+<script type="text/javascript">
+	var socket = new WebSocket(
+			"ws://localhost:8080/DirectoryIntegrityManager/action");
+	setTimeout(function() {
+
+		socket.send("hi");
+	}, 3000);
+
+	var totalFiles=0;
+	var currentFileNo=0;
+	var recentNotes=0;
+	var currentPath="";
+	var index=-1;
+	var resArr;
+	var metaFlag=false;
+	
+	//console.log(socket);
+	socket.onmessage = function processMessage(message) {
+		var jsonData = JSON.parse(message.data);
+		//console.log(jsonData);
+		if(jsonData.type==1)
+			{
+				if(jsonData.totalFiles!=0)
+					totalFiles=jsonData.totalFiles;
+				currentFileNo=jsonData.currentFileNo;
+				
+				var bar=document.getElementById("progBar");
+				var counter=document.getElementById("counterProg");
+				
+				var val=Math.floor((currentFileNo/totalFiles)*100);
+				bar.style.width=val+'%';
+				bar.innerHTML=val+'%';
+				counter.innerHTML=currentFileNo+"/"+totalFiles;
+			}
+		if(jsonData.type==2)
+			{
+				recentNotes++;
+				var notes=document.getElementById("notes");
+				notes.onclick=clearNotes;
+				//console.log(notes.childNodes[0]);
+				if(!notes.childNodes[0].classList.contains("note"))
+					{
+					notes.innerHTML="<i "
+				+"class=\"material-icons mr-3\" style=\"color: white;\">"
+					+"notifications_active" 
+					+"</i>";
+				notes.childNodes[0].classList.add("note");
+				notes.childNodes[0].innerHTML+="<i class=\"fas fa-circle\">"
+				+ "<span class=\"num\" id=\"noteNum\" >"+recentNotes+"</span></i>"
+					}
+				else
+					{
+					var num=document.getElementById("noteNum");
+					num.innerHTML=recentNotes;
+					}
+				
+				var noteList=document.getElementById("noteList");
+				
+				var li = document.createElement("li");
+				li.className = "list-group-item mb-1";
+				if(jsonData.event=="add")
+					{
+					li.classList.add("list-group-item-success");
+					li.innerHTML = "Addition of <strong>"+jsonData.fm.name+"</strong> at <strong>"+jsonData.path+"</strong>";
+					
+						console.log(jsonData.path+"--"+currentPath);
+						if(jsonData.path.includes(currentPath) && currentPath!="")
+						{
+							var table=document.getElementById("mainTable");
+							var tr=table.insertRow(-1);
+							tr.className="d-flex";
+							
+							var tabCell1 = tr.insertCell(-1);
+							tabCell1.className="col-8";
+							var tabCell2 = tr.insertCell(-1);
+							tabCell2.className="col-2";
+							var tabCell3 = tr.insertCell(-1);
+							tabCell3.className="col-2";
+							
+							resArr.push(jsonData.fm);
+
+							if(jsonData.fm.isDirectory==true)
+								{
+								tabCell1.innerHTML="<a href=\"#\" class=\"\" onclick=\"fetchSubList('"+decodeURI(encodeURI(jsonData.path).replace(/%5C/g,"%5C%5C"))+"');\" id=\""+jsonData.path+"\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+jsonData.path+"\" data-original-title=\""+jsonData.path+"\" ><i class=\"far fa-folder\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+jsonData.fm.name+"</a>"+" <div class=\"dropdown float-right\">"
+						+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+					   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+					  	+	 "</a>"
+					  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+					 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv("+(resArr.length-1)+")\">Details</a>"
+						+    "<a class=\"dropdown-item\" href=\"#\" onclick=\"fetchSubList('"+decodeURI(encodeURI(jsonData.path).replace(/%5C/g,"%5C%5C"))+"');\">Explore</a>"
+						+    "</div>"
+						+    "</div>";
+								tabCell2.innerHTML="--";
+								}
+							else
+								{
+								tabCell1.innerHTML="<a href=\"#\" onclick=\"checkView("+(resArr.length-1)+")\"><i class=\"far fa-file\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+jsonData.fm.name+"</a> <div class=\"dropdown float-right\">"
+						+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+					   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+					  	+	 "</a>"
+					  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+					 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv("+(resArr.length-1)+")\">Details</a>"
+						+	 "<a class=\"dropdown-item\" href=\"download?path="+jsonData.path+"\">Download</a>"
+						+	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"checkView("+(resArr.length-1)+")\">View</a>"+ checkTokens(resArr.length-1) +"</div></div>";
+
+								tabCell2.innerHTML=bytesToSize(jsonData.fm.length);
+								}
+							tabCell3.innerHTML=timeSince(new Date(jsonData.fm.lastAccessTime))+" ago";
+							//var resArr=table.childNodes[0].childNodes[0];
+							//console.log(resArr);
+						}
+						
+						
+					
+					}
+				else if(jsonData.event=="del")
+					{
+					li.classList.add("list-group-item-danger");
+					li.innerHTML = "Deletion of <strong>"+getFileName(jsonData.path)+"</strong> at <strong>"+jsonData.path+"</strong>";
+					}
+				else
+					{
+					li.classList.add("list-group-item-warning");
+					li.innerHTML = "Modification of <strong>"+getFileName(jsonData.path)+"</strong> at <strong>"+jsonData.path+"</strong>";
+					}
+				/*if(jsonData.fm!=null)
+					{
+				if( jsonData.fm.isDirectory==true)
+				{
+					li.innerHTML+="Folder - "+ jsonData.fm.name+" @"+jsonData.path;
+				}
+				else
+					{
+					li.innerHTML+="File - "+ jsonData.fm.name+" @"+jsonData.path;
+					}
+					}
+				else
+					{
+					li.innerHTML+= jsonData.path.substring(jsonData.path.lastIndexOf('\\')+1)+" @"+jsonData.path;
+					}*/
+				noteList.appendChild(li);
+				
+					
+				
+			}
+		
+	}
+	socket.onopen = function() {
+		console.log("connection opened");
+	};
+	socket.onclose = function() {
+		console.log("connection closed");
+	};
+	socket.onerror = function wserror(message) {
+		console.log("error: " + message);
+	};
+	
+	$(function() {
+		$('[data-toggle="tooltip"]').tooltip({
+			trigger : 'hover'
+		});
+	});
+	
+	var j = 0;
+
+
+	
+	
+	function checkView(i)
+	{
+		if(resArr[i].lineCount!=-1)
+			{
+			
+			document.getElementById("contentModalLongTitle").innerHTML=resArr[i].name;
+			
+			request = getXmlHttpRequestObject();
+			request.onreadystatechange = showContent;
+			request.open("post", "content", true);
+			request.setRequestHeader("Content-Type",
+					"application/x-www-form-urlencoded");
+			request.send("path=" + resArr[i].path);
+			}
+		else
+			{
+			//ask for download
+				if(confirm("Unreadable for UTF-8. Want to download?"))
+				{
+					this.href="download?path="+resArr[i].path;
+					window.location.href=this.href;
+				}
+			}
+	}
+	
+	function showContent()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+			
+			console.log(request.responseText);
+			
+			document.getElementById("content-modal").innerHTML="<textarea style=\"resize:none;height: 600px;width: -webkit-fill-available;font-size: 16px;font-weight: 450;\" class=\"border-0 text-secondary\" readonly>"+request.responseText+"</textarea>";
+			
+			$('#contentModalLong').modal('show');
+			
+			
+			
+		}
+		else
+			console.log("content response not found");
+	}
+	
+	function closeLastDiv()
+	{
+		var metaDiv=document.getElementById("metaDiv");
+		metaDiv.style.display="none";
+		metaFlag=false;
+	}
+
+	function showTokens(index)
+	{
+		if(metaFlag)
+			closeLastDiv();
+		metaFlag=true;
+
+		var row=resArr[index];
+
+		var metaDiv=document.getElementById("metaDiv");
+		metaDiv.removeChild(metaDiv.childNodes[0]);
+		metaDiv.style.display="block";
+
+		var metaInfo=document.createElement("div");
+		metaInfo.className="card mt-2 border-0";
+		metaInfo.style.width="22rem";
+
+		metaDiv.appendChild(metaInfo);
+
+		var cardH=document.createElement("div");
+		cardH.className="card-header border-0 text-primary text-truncate bg-white font-weight-normal";
+		cardH.style.fontSize="1.5rem";
+		cardH.innerHTML=row.name+"<button type=\"button\" class=\"close float-right\" onclick=\"closeLastDiv();\" aria-label=\"Close\">"
+  		+"<span aria-hidden=\"true\">&times;</span>"
+		+"</button>";
+
+		metaInfo.appendChild(cardH);
+
+		var table=document.createElement("table");
+		table.className="table";
+
+		metaInfo.appendChild(table);
+		
+		var thead=document.createElement("thead");
+		thead.style.display="block";
+
+		table.appendChild(thead);
+
+		thead.innerHTML="<tr class=\"d-flex\"><th class=\"col-8\">Name</th><th class=\"col-4 pr-3\">Count</th></tr>";
+
+		var tbody=document.createElement("tbody");
+		tbody.style.display="block";
+		tbody.style.height="400px";
+		tbody.style.overflow="auto";
+
+		table.appendChild(tbody);
+
+		var tr,td1,td2;
+		
+		//console.log(row.tokenList);
+		
+		
+		var tokenArr=convertTokenMapToArray(row.tokenList);
+		//console.log(tokenArr);
+		
+		tokenArr.sort(function(a, b) {
+		    
+			return (b.y)-(a.y);
+			
+		});
+		
+		for(i=0;i<tokenArr.length;i++)
+			{
+				tr=tbody.insertRow(-1);
+				tr.className="d-flex";
+				
+				td1=tr.insertCell(-1);
+				td1.className="col-8";
+				td1.innerHTML="<a href=\"#\" onclick=\"getInfo('"+tokenArr[i].name+"');\"><i class=\"far fa-star\"></i>"+tokenArr[i].name+"</a>";
+
+				td2=tr.insertCell(-1);
+				td2.className="col-4";
+				td2.innerHTML=tokenArr[i].y;
+
+			}
+		
+		var ul=document.createElement("ul");
+		ul.className="list-group border-0";
+		ul.innerHTML="<li class=\"list-group-item border-0\">"
+		+ "<a href=\"#\" id=\"do\" onclick=\"showDoughnut("+index+")\">Visualize using Doughnut Chart</a>"
+		+ "</li>"
+		+ "<li class=\"list-group-item border-0\">"
+		+ "<a href=\"#\" id=\"wo\" onclick=\"showWordCloud("+index+")\">Visualize using Word Cloud</a>"
+		+ "</li>";
+		
+		metaInfo.appendChild(ul);
+		
+	}
+
+	
+	function showWordCloud(index)
+	{
+		document.getElementById("cloudModalTitle").innerHTML=resArr[index].name;
+		var tokenArr=convertTokenMapToArray2(resArr[index].tokenList);
+		
+		var myConfig = {
+				  type: 'wordcloud',
+				  options: {
+					  words : tokenArr,
+					  style: {
+						  tooltip: {
+						        text: '%text: %hits',
+						        visible: true,
+						        
+						        alpha: 0.9,
+						  		
+						        borderColor: 'none',
+						        
+						        fontColor: 'black',
+						        fontFamily: 'Georgia',
+						        fontSize: 12,
+						        textAlpha: 1
+						      }
+					  }
+				  }
+				};
+				 
+				zingchart.render({ 
+					id: 'cloudContainer', 
+					data: myConfig, 
+					height: 600, 
+					width: '100%' 
+				});
+		$('#cloudModal').modal('show');
+	}
+	
+	function showDoughnut(index)
+	{
+		document.getElementById("chartModalLongTitle").innerHTML=resArr[index].name;
+		
+		
+		var tokenArr=convertTokenMapToArray(resArr[index].tokenList);
+		console.log(tokenArr);
+		
+			var chart = new CanvasJS.Chart("chartContainer", {
+			theme: "dark2",
+			exportFileName: "Doughnut Chart["+resArr[index].name+"]",
+			exportEnabled: true,
+			animationEnabled: true,
+			data: [{
+				type: "doughnut",
+				toolTipContent: "<b>{name}</b>: {y} (#percent%)",
+				indexLabel: "{name} - #percent%",
+				innerRadius: 100,
+				showInLegend: false,
+				dataPoints: tokenArr
+			}]
+		});
+		
+		
+		$('#chartModalLong').modal('show');
+
+		
+		
+		
+		
+		chart.render();
+		
+		/*var chartC=document.getElementById("chartContainer").childNodes[0];
+		chartC.childNodes[0].style.width="600px";
+		chartC.childNodes[0].style.height="600px";
+		chartC.childNodes[0].width="600";
+		chartC.childNodes[0].height="600";
+		
+		chartC.childNodes[1].style.width="600px";
+		chartC.childNodes[1].style.height="600px";
+		chartC.childNodes[1].width="600";
+		chartC.childNodes[1].height="600";*/
+		//document.getElementById("chartModalLong").classList.add("p-0");
+
+	}
+
+	
+	function convertTokenMapToArray(tokenMap)
+	{
+		var tempArr=[];
+		jQuery.each(tokenMap, function(name, y) {
+			tempArr.push({name,y});
+			});
+		return tempArr;
+	}
+
+	function convertTokenMapToArray2(tokenMap)
+	{
+		var tempArr=[];
+		jQuery.each(tokenMap, function(text, count) {
+			tempArr.push({text,count});
+			});
+		return tempArr;
+	}
+
+	
+	function showLastDiv(index)
+	{
+		metaFlag=true;
+		var row=resArr[index];
+		
+		console.log(row);	
+		
+		var metaDiv=document.getElementById("metaDiv");
+		metaDiv.removeChild(metaDiv.childNodes[0]);
+		metaDiv.style.display="block";
+		
+		var metaInfo=document.createElement("div");
+		metaInfo.className="card mt-2 border-0";
+		metaInfo.style.width="22rem";
+
+		metaDiv.appendChild(metaInfo);
+
+		var cardH=document.createElement("div");
+		cardH.className="card-header border-0 text-primary text-truncate bg-white font-weight-normal";
+		cardH.style.fontSize="1.5rem";
+		cardH.innerHTML=row.name+"<button type=\"button\" class=\"close float-right\" onclick=\"closeLastDiv();\" aria-label=\"Close\">"
+  		+"<span aria-hidden=\"true\">&times;</span>"
+		+"</button>";
+
+		metaInfo.appendChild(cardH);
+
+		var table=document.createElement("table");
+		table.className="table";
+
+		metaInfo.appendChild(table);
+
+		var tr=table.insertRow(-1);
+
+		var tabCell1 = tr.insertCell(-1);
+		tabCell1.innerHTML="<strong>Type</strong>";
+		var tabCell2 = tr.insertCell(-1);
+		if(row.isDirectory==true)
+			{
+				tabCell2.innerHTML="Directory";
+				
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Modified</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=timeSince(row.lastModifiedTime)+" ago";
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Created</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=timeSince(row.creationTime)+" ago";
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Parent</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=getFileName(row.parent);
+
+				/*tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Path</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=row.path;*/
+			}
+		else
+			{
+				tabCell2.innerHTML="File";
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Modified</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=timeSince(row.lastModifiedTime)+" ago";
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Created</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=timeSince(row.creationTime)+" ago";
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Parent</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=getFileName(row.parent);
+
+				/*tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Path</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=row.path;*/
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Extension</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=row.extension;
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Size</strong>";
+				tabCell2=tr.insertCell(-1);
+				tabCell2.innerHTML=bytesToSize(row.length);
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Line(s)</strong>";
+				tabCell2=tr.insertCell(-1);
+				if(row.lineCount!=-1)
+					tabCell2.innerHTML=row.lineCount;
+				else
+					tabCell2.innerHTML="Non-Readable for UTF-8";
+
+				tr=table.insertRow(-1);
+				tabCell1=tr.insertCell(-1);
+				tabCell1.innerHTML="<strong>Word(s)</strong>";
+				tabCell2=tr.insertCell(-1);
+				if(row.wordCount!=-1)
+					tabCell2.innerHTML=row.wordCount;
+				else
+					tabCell2.innerHTML="Non-Readable for UTF-8";
+
+			}
+
+		
+	}
+	
+	function getFileName(path)
+	{
+		var i=path.lastIndexOf('\\')+1;
+		if(i==path.length)
+			{
+			return path;
+			}
+		else if(i==-1)
+			{
+			return path;
+			}
+		else
+			return path.substring(i);
+	}
+	
+	function getXmlHttpRequestObject() {
+		var xmlHttpReq;
+
+		if (window.XMLHttpRequest) {
+			request = new window.XMLHttpRequest();
+		} else if (window.ActiveXObject) {
+			request = new window.ActiveXObject();
+		} else {
+			request = null;
+		}
+		return request;
+	}
+
+	function setFoldersResource() {
+		console.log("called");
+		request = getXmlHttpRequestObject();
+		request.onreadystatechange = showFolders;
+		request.open("post", "onload", true);
+		request.setRequestHeader("Content-Type",
+				"application/x-www-form-urlencoded");
+		request.send();
+	}
+
+	function showFolders() {
+		if (request.readyState === 4 && request.status === 200) {
+
+			var data = request.responseText;
+			//console.log(request.responseText);
+			var bar = document.getElementById("indexedfolderslist");
+			var json = JSON.parse(data);
+
+			var i = json["map"];
+
+			//console.log(i["path0"]);
+
+			for (i in json["map"]) {
+				var li = document.createElement("li");
+				li.className = "list-group-item border-0";
+				li.innerHTML += "<span class=\"badge badge-pill badge-light indexBadge\"><a href=\"#\" class=\"text-justify indexedFolders indexedpaths\" data-toggle=\"tooltip\" data-placement=\"bottom\" title=\""+json["map"][i]+"\" data-original-title=\""
+						+ json["map"][i]
+						+ "\" onclick=\"fetchList("
+						+ (j++)
+						+ ");\" ><i class=\"fa fa-folder\" aria-hidden=\"true\"></i> "
+						+ getFileName(json["map"][i]) + "</a></span>";
+
+				bar.appendChild(li);
+				
+
+			}
+			$(function() {
+				$('[data-toggle="tooltip"]').tooltip({
+					trigger : 'hover'
+				});
+			});
+			//bar.innerHTML += "<a>";
+
+		} else
+			console.log("not found");
+	}
+	var map=new Map();
+	function check(i)
+	{
+		var badge=document.getElementsByClassName("indexBadge");
+		var folder=document.getElementsByClassName("indexedpaths");
+		var eye=document.getElementById("showFiles");
+		if(!map.has(folder[i].title))
+			{
+				//badge[i].style.background="#e8f0fe";
+				badge[i].classList.add("border");
+				map.set(folder[i].title,folder[i].title);
+			}
+		else
+			{
+				//badge[i].style.background="#f8f9fa"
+				badge[i].classList.remove("border");
+				map.delete(folder[i].title);
+			}
+	}
+	
+	function setPathResource() {
+
+		var path = document.getElementById("path").value;
+		document.getElementById("path").value='';
+		if (path.trim() == "") {
+			alert("Empty Input");
+		} else {
+			
+			var bar = document.getElementById("indexedfolderslist");
+			var li = document.createElement("li");
+			li.className = "list-group-item border-0";
+			li.innerHTML += "<span class=\"badge badge-pill badge-light\" style=\"font-size: 95%;font-weight: 500;\"><a href=\"#\" class=\"mb-1 text-justify w-50 h-50\" data-toggle=\"tooltip\" data-placement=\"bottom\" title=\""+path+"\" data-original-title=\""
+					+ path
+					+ "\" ><i class=\"far fa-folder\" aria-hidden=\"true\"></i> "
+					+ getFileName(path)
+					+ " </a></span><span class=\"badge badge-info float-right\" style=\"font-weight=400;\" id=\"counterProg\">0/"+totalFiles+"</span>"
+					+ "<div class=\"progress\">"
+					+ "<div class=\"progress-bar progress-bar-striped progress-bar-animated\" role=\"progressbar\" id=\"progBar\" aria-valuemin=\"0\" aria-valuemax=\"100\" style=\"width: 0% \">0%</div>"
+					+ " </div>";
+			
+					$(function() {
+						$('[data-toggle="tooltip"]').tooltip({
+							trigger : 'hover'
+						});
+					});
+			bar.appendChild(li);
+			
+			console.log(path);
+			request = getXmlHttpRequestObject();
+			request.onreadystatechange = notifyIndexed;
+			request.open("post", "path", true);
+			request.setRequestHeader("Content-Type",
+					"application/x-www-form-urlencoded");
+			request.send("path=" + path);
+		}
+
+	}
+
+	function notifyIndexed() {
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			var success = document.getElementById("notification1");
+			success.innerHTML="<strong>SUCCESS: </strong> Directory Indexed Successfully! <button type=\"button\" class=\"close\" onclick=\"setNotification(1);\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>";
+			success.style.display="block";
+			var bar = document.getElementById("indexedfolderslist");
+			bar.removeChild(bar.lastChild);
+			
+			var json = JSON.parse(request.responseText);
+
+			var i = json["map"];
+
+			//console.log(i["path0"]);
+
+			for (i in json["map"]) {
+				var li = document.createElement("li");
+				li.className = "list-group-item border-0";
+				li.innerHTML += "<span class=\"badge badge-pill badge-light indexBadge\"><a href=\"#\" class=\"text-justify indexedFolders indexedpaths\" data-toggle=\"tooltip\" data-placement=\"bottom\" title=\""+json["map"][i]+"\" data-original-title=\""
+						+ json["map"][i]
+						+ "\" onclick=\"fetchList("
+						+ (j++)
+						+ ");\" ><i class=\"fa fa-folder\" aria-hidden=\"true\"></i> "
+						+ getFileName(json["map"][i]) + "</a></span>";
+
+				bar.appendChild(li);
+				
+
+			}
+			$(function() {
+				$('[data-toggle="tooltip"]').tooltip({
+					trigger : 'hover'
+				});
+			});
+		} else
+			console.log("not found");
+	}
+	
+	function setNotification(i)
+	{
+		console.log("hi");
+		var bar=document.getElementById("notification"+i);
+		bar.style.display="none";
+	}
+	
+	function setIndexFileResource() {
+
+		var path = document.getElementById("indexfilepath").value;
+		if (path.trim() == "") {
+			//empty input
+		} else {
+			console.log(path);
+			request = getXmlHttpRequestObject();
+			request.onreadystatechange = notifyPathSet;
+			request.open("post", "indexfilepath", true);
+			request.setRequestHeader("Content-Type",
+					"application/x-www-form-urlencoded");
+			request.send("indexfilepath=" + path);
+		}
+
+	}
+
+	function notifyPathSet() {
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			var success = document.getElementById("notification1");
+			success.innerHTML="<strong>SUCCESS: </strong> Now the index file will be stored at your specified location! <button type=\"button\" class=\"close\" onclick=\"setNotification(1);\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>";
+			success.style.display="block";
+		} else
+			console.log("not found");
+	}
+	
+	function bytesToSize(bytes) {
+		   var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+		   if (bytes == 0) return '0 Byte';
+		   var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+		   return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+		};
+	
+		function timeSince(date) {
+
+			  var seconds = Math.floor((new Date() - date) / 1000);
+
+			  var interval = Math.floor(seconds / 31536000);
+
+			  if (interval > 1) {
+			    return interval + " years";
+			  }
+			  interval = Math.floor(seconds / 2592000);
+			  if (interval > 1) {
+			    return interval + " months";
+			  }
+			  interval = Math.floor(seconds / 86400);
+			  if (interval > 1) {
+			    return interval + " days";
+			  }
+			  interval = Math.floor(seconds / 3600);
+			  if (interval > 1) {
+			    return interval + " hours";
+			  }
+			  interval = Math.floor(seconds / 60);
+			  if (interval > 1) {
+			    return interval + " minutes";
+			  }
+			  return Math.floor(seconds) + " seconds";
+			}
+		
+		
+	var path=-1;
+	function fetchList(i)
+	{
+		index=i;
+		//emptying current rendered data
+		
+		var myNode = document.getElementById("mainBC");
+		while (myNode.firstChild) {
+    		myNode.removeChild(myNode.firstChild);
+		}
+
+		myNode = document.getElementById("mainTable");
+		while (myNode.firstChild) {
+   		  myNode.removeChild(myNode.firstChild);
+		}
+		
+		console.log(myNode.innerHTML);
+		
+		var folder=document.getElementsByClassName("indexedpaths");
+		var badge=document.getElementsByClassName("indexBadge");
+		
+		var folderName=folder[i].innerHTML.substring(folder[i].innerHTML.indexOf("</i>")+("</i>").length+1);
+		
+		currentPath=folder[i].getAttribute("data-original-title");
+		
+		if(path!=-1)
+			{
+			folder[path].innerHTML="<i class=\"fa fa-folder\" aria-hidden=\"true\"></i> "+folder[path].innerHTML.substring(folder[path].innerHTML.indexOf("</i>")+("</i>").length+1);
+			badge[path].classList.remove("border");
+			path=i;
+			folder[path].innerHTML="<i class=\"fa fa-folder-open\" aria-hidden=\"true\"></i> "+folderName;
+			badge[path].classList.add("border");
+			}
+		else
+			{
+			path=i;
+			folder[path].innerHTML="<i class=\"fa fa-folder-open\" aria-hidden=\"true\"></i> "+folderName;
+			badge[path].classList.add("border");
+			}
+		
+		
+		/*if(map.size===0)
+			{
+			map.set(folder[i].getAttribute("data-original-title"),folder[i].getAttribute("data-original-title"));
+			}
+		else
+			{
+			map.forEach((value,key) => {
+				
+				var entity = {"path" : value};
+				jsonArr.push(entity);
+			});
+			}*/
+		
+		console.log("--"+folderName+"--")
+		
+		
+			console.log("yhis "+folder[i].getAttribute("data-original-title"));
+			var jsonStr={};
+			var jsonVar={};
+			var jsonArr=[];
+			console.log(map.size);
+			/*map.forEach((value,key) => {
+				
+				var entity = {"path" : value};
+				jsonArr.push(entity);
+			});*/
+			
+			var entity = {"path" : folder[i].getAttribute("data-original-title")};
+			jsonArr.push(entity);
+			jsonArr=JSON.stringify({
+				'selPaths':jsonArr
+			});
+			
+			/*jsonVAR["selPaths"]=jsonStr;
+			jsonStr=JSON.stringify(jsonVAR);
+			console.log(jsonStr);
+			
+			console.log(jsonStr);*/
+			request = getXmlHttpRequestObject();
+		  	request.onreadystatechange = showList;
+			request.open("post", "filesList",true);
+			request.setRequestHeader("Content-Type","application/json");
+			
+			request.send(jsonArr);
+
+	}
+	
+	function showList()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			if(metaFlag)
+				closeLastDiv();
+
+			//console.log(request.responseText);
+			var resJson=JSON.parse(request.responseText);
+			resArr=resJson["result"];
+			var table=document.getElementById("folderList");
+			
+			var first=resArr[0];
+			//resArr.shift();
+			resArr.sort(function(a, b) {
+			    
+				if(a==first)
+					return -1;
+				if(b==first)
+					return 1;
+				
+				if(a.isDirectory==true && b.isDirectory==true)
+					{
+					return a.name.localeCompare(b.name);
+					}
+				else if(a.isDirectory==true && b.isDirectory==false)
+					{
+					return 1;
+					}
+				else if(a.isDirectory==false && b.isDirectory==true)
+					{
+					return -1;
+					}
+				else
+					{
+					return a.name.localeCompare(b.name);
+					}
+				
+			});
+			
+			//console.log(resArr);
+			//use it in ui template
+			
+			
+			
+			var table=document.getElementById("mainTable");
+			var tr=table.insertRow(-1);
+			tr.className="d-flex";
+			var th1=document.createElement("th");
+			th1.className="col-8";
+			var th2=document.createElement("th");
+			th2.className="col-2";
+			var th3=document.createElement("th");
+			th3.className="col-2";
+			
+			th1.innerHTML="Name";
+			th2.innerHTML="Size";
+			th3.innerHTML="Last Access Time";
+			
+			tr.appendChild(th1);
+			tr.appendChild(th2);
+			tr.appendChild(th3);
+			
+			tr=table.insertRow(-1);
+			tr.className="d-flex";
+			
+			var tabCell1 = tr.insertCell(-1);
+			tabCell1.className="col-8";
+			var tabCell2 = tr.insertCell(-1);
+			tabCell2.className="col-2";
+			var tabCell3 = tr.insertCell(-1);
+			tabCell3.className="col-2";
+			
+			/*if(first.isDirectory==true)
+			{*/
+			tabCell1.innerHTML="<i class=\"far fa-folder-open\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+first.name+" <div class=\"dropdown float-right\">"
+			+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+		   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+		  	+	 "</a>"
+		  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+		 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv(0)\">Details</a>"
+			+    "</div>"
+			+    "</div>";
+			tabCell2.innerHTML="--";
+			//}
+		/*else
+			{
+			tabCell1.innerHTML="<i class=\"far fa-file\" aria-hidden=\"true\"></i>  "+first.name+" <div class=\"dropdown float-right\">"
+			+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+		   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+		  	+	 "</a>"
+		  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+		 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv(0)\">Details</a>"
+			+    "<a class=\"dropdown-item\" href=\"#\">Explore</a>"
+			+	 "<a class=\"dropdown-item\" href=\"#\">Download</a>"
+			+	 "<a class=\"dropdown-item\" href=\"#\">View</a>"
+			+    "</div>"
+			+    "</div>";
+			tabCell2.innerHTML=bytesToSize(first.length);
+			}*/
+			tabCell3.innerHTML=timeSince(new Date(first.lastAccessTime))+ " ago";
+			
+			
+			for(i=1;i<resArr.length;i++)
+				{
+					console.log(resArr[i]);
+					tr=table.insertRow(-1);
+					tr.className="d-flex";
+					
+					
+					var tabCell1 = tr.insertCell(-1);
+					tabCell1.className="col-8";
+					var tabCell2 = tr.insertCell(-1);
+					tabCell2.className="col-2";
+					var tabCell3 = tr.insertCell(-1);
+					tabCell3.className="col-2";
+					
+					if(resArr[i].isDirectory==true)
+						{
+						tabCell1.innerHTML="<a href=\"#\" class=\"\" onclick=\"fetchSubList('"+decodeURI(encodeURI(resArr[i].path).replace(/%5C/g,"%5C%5C"))+"');\" id=\""+resArr[i].path+"\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+resArr[i].path+"\" data-original-title=\""+resArr[i].path+"\" ><i class=\"far fa-folder\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+resArr[i].name+"</a>"+" <div class=\"dropdown float-right\">"
+						+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+					   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+					  	+	 "</a>"
+					  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+					 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv("+i+")\">Details</a>"
+						+    "<a class=\"dropdown-item\" href=\"#\" onclick=\"fetchSubList('"+decodeURI(encodeURI(resArr[i].path).replace(/%5C/g,"%5C%5C"))+"');\">Explore</a>"
+						+    "</div>"
+						+    "</div>";
+						tabCell2.innerHTML="--";
+						}
+					else
+						{
+						tabCell1.innerHTML="<a href=\"#\" onclick=\"checkView("+(i)+")\"><i class=\"far fa-file\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+resArr[i].name+"</a> <div class=\"dropdown float-right\">"
+						+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+					   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+					  	+	 "</a>"
+					  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+					 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv("+i+")\">Details</a>"
+						+	 "<a class=\"dropdown-item\" href=\"download?path="+resArr[i].path+"\">Download</a>"
+						+	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"checkView("+(i)+")\">View</a>"+ checkTokens(i) +"</div></div>";
+						
+						tabCell2.innerHTML=bytesToSize(resArr[i].length);
+						}
+					tabCell3.innerHTML=timeSince(new Date(resArr[i].lastAccessTime))+" ago";
+				}
+			
+			
+
+		} else
+			console.log("not found");
+	}
+	
+
+
+	function checkTokens(i)
+	{
+		if(resArr[i].tokenList!=null)
+			return "<a class=\"dropdown-item ohu\" href=\"#\" onclick=\"showTokens("+(i)+")\">Tokens</a>";
+		else
+			return "";
+	}
+	
+	function fetchSubList(path)
+	{
+		currentPath=path;
+		index=-1;
+		
+		//flag for ensuring that the path is present in breadcrumb and all the elements after it needs to be deletre
+		var flag=true;
+		/*var myNode = document.getElementById("mainBC");
+		while (myNode.firstChild) {
+    		myNode.removeChild(myNode.firstChild);
+		}*/
+
+		var myNode = document.getElementById("mainTable");
+		while (myNode.firstChild) {
+   		  myNode.removeChild(myNode.firstChild);
+		}
+		
+		
+		var folderName=getFileName(path);
+		
+		var bc1=document.getElementById("bc");
+		if(bc1==null)
+			{
+			var breadC=document.getElementById("mainBC");
+			var bc1=document.createElement("ol");
+			bc1.className="breadcrumb bg-light mb-0";
+			bc1.id="bc";
+			bc1.innerHTML="<li class=\"breadcrumb-item active\" id=\""+path+"\" aria-current=\"page\">"+folderName+"</li>";
+			breadC.appendChild(bc1);
+			
+			//add this path to currmap
+			
+			}
+		else
+		{
+		var len=bc1.childNodes.length;
+		var i=0;
+		while(i<len)
+			{
+			
+			if(flag && bc1.childNodes[i].id==path)
+				{
+				bc1.childNodes[i].classList.remove("active");
+				bc1.childNodes[i].innerHTML=folderName;
+				flag=false;
+				i++;
+				}
+			else if(!flag)
+				{
+				bc1.removeChild(bc1.childNodes[i]);
+				len=bc1.childNodes.length;
+				}
+			else
+				i++;
+			}
+		
+		if(flag)
+			{
+				
+			var lastChild=bc1.lastChild;
+			if(lastChild!=null)
+				{
+				lastChild.classList.remove("active");
+				console.log("*******"+lastChild.id);
+				console.log(path);
+				lastChild.innerHTML="<a href=\"#\" onclick=\"fetchSubList('"+decodeURI(encodeURI(lastChild.id).replace(/%5C/g,"%5C%5C"))+"')\">"+lastChild.innerHTML+"</a>"
+				bc1.innerHTML+="<li class=\"breadcrumb-item active\" id=\""+path+"\" aria-current=\"page\">"+folderName+"</li>";
+				}
+			}
+		}
+		//extract element using path as id
+		request = getXmlHttpRequestObject();
+	  	request.onreadystatechange = showSubList;
+		request.open("post", "subFilesList", true);
+		request.setRequestHeader("Content-Type",
+		"application/x-www-form-urlencoded");
+		request.send("path=" + path);
+	}
+	
+	function showSubList()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			if(metaFlag)
+				closeLastDiv();
+			//console.log(request.responseText);
+			var resJson=JSON.parse(request.responseText);
+			resArr=resJson["result"];
+			
+			resArr.sort(function(a, b) {
+			    
+				if(a.isDirectory==true && b.isDirectory==true)
+					{
+					return a.name.localeCompare(b.name);
+					}
+				else if(a.isDirectory==true && b.isDirectory==false)
+					{
+					return 1;
+					}
+				else if(a.isDirectory==false && b.isDirectory==true)
+					{
+					return -1;
+					}
+				else
+					{
+					return a.name.localeCompare(b.name);
+					}
+				
+			});
+			
+			//console.log(resArr);
+			//use it in ui template
+			
+			var table=document.getElementById("mainTable");
+			var tr=table.insertRow(-1);
+			tr.className="d-flex";
+			var th1=document.createElement("th");
+			th1.className="col-8";
+			var th2=document.createElement("th");
+			th2.className="col-2";
+			var th3=document.createElement("th");
+			th3.className="col-2";
+			
+			th1.innerHTML="Name";
+			th2.innerHTML="Size";
+			th3.innerHTML="Last Access Time";
+			
+			tr.appendChild(th1);
+			tr.appendChild(th2);
+			tr.appendChild(th3);
+			
+			for(i=0;i<resArr.length;i++)
+				{
+					console.log(resArr[i]);
+					tr=table.insertRow(-1);
+					tr.className="d-flex";
+					
+					var tabCell1 = tr.insertCell(-1);
+					tabCell1.className="col-8";
+					var tabCell2 = tr.insertCell(-1);
+					tabCell2.className="col-2";
+					var tabCell3 = tr.insertCell(-1);
+					tabCell3.className="col-2";
+					
+					if(resArr[i].isDirectory==true)
+						{
+						tabCell1.innerHTML="<a href=\"#\" class=\"\" onclick=\"fetchSubList('"+decodeURI(encodeURI(resArr[i].path).replace(/%5C/g,"%5C%5C"))+"');\" id=\""+resArr[i].path+"\" data-toggle=\"tooltip\" data-placement=\"right\" title=\""+resArr[i].path+"\" data-original-title=\""+resArr[i].path+"\" ><i class=\"far fa-folder\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+resArr[i].name+"</a>"+" <div class=\"dropdown float-right\">"
+						+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+					   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+					  	+	 "</a>"
+					  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+					 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv("+i+")\">Details</a>"
+						+    "<a class=\"dropdown-item\" href=\"#\" onclick=\"fetchSubList('"+decodeURI(encodeURI(resArr[i].path).replace(/%5C/g,"%5C%5C"))+"');\">Explore</a>"
+						+    "</div>"
+						+    "</div>";
+						tabCell2.innerHTML="--";
+						}
+					else
+						{
+						tabCell1.innerHTML="<a href=\"#\" onclick=\"checkView("+(i)+")\"><i class=\"far fa-file\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+resArr[i].name+"</a> <div class=\"dropdown float-right\">"
+						+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+					   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+					  	+	 "</a>"
+					  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+					 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv("+i+")\">Details</a>"
+						+	 "<a class=\"dropdown-item\" href=\"download?path="+resArr[i].path+"\">Download</a>"
+						+	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"checkView("+(i)+")\">View</a>"+ checkTokens(i) +"</div></div>";
+						tabCell2.innerHTML=bytesToSize(resArr[i].length);
+						}
+					tabCell3.innerHTML=timeSince(new Date(resArr[i].lastAccessTime))+" ago";
+				}
+			
+			
+			
+			
+		} else
+			console.log("not found");
+	}
+	
+	function addStopWord()
+	{
+		var word=document.getElementById("word");
+		var wordVal=word.value;
+		if(wordVal.trim()=="")
+		{
+			alert("Empty Imput");
+			return;
+		}
+
+		request = getXmlHttpRequestObject();
+	  	request.onreadystatechange = notifyStatus;
+		request.open("post", "stopword", true);
+		request.setRequestHeader("Content-Type",
+		"application/x-www-form-urlencoded");
+		request.send("word=" + wordVal);
+	}
+	
+	function notifyStatus()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			console.log(request.responseText);
+			var state=JSON.parse(request.responseText);
+			if(state.statusCode===1)
+				{
+				
+				var success = document.getElementById("notification1");
+				success.innerHTML="<strong>SUCCESS: </strong> Stop Word Added Successfully! <button type=\"button\" class=\"close\" onclick=\"setNotification(1);\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>";
+				success.style.display="block";
+				
+				}
+			
+			//use it in ui template
+		} else
+			console.log("not found");
+	}
+	
+	function clearNotes()
+	{
+		$('#exampleModalLong').modal('show');
+		recentNotes=0;
+		var notes=document.getElementById("notes");
+		notes.innerHTML="<i class=\"material-icons mr-3\" style=\"color: white;\">notifications_none </i>";
+		notes.onclick="";
+	}
+	
+	function emptyModal()
+	{
+		var noteList=document.getElementById("noteList");
+		noteList.innerHTML="";
+	}
+	
+	function showAllTokens()
+	{
+		var myNode = document.getElementById("mainBC");
+		while (myNode.firstChild) {
+    		myNode.removeChild(myNode.firstChild);
+		}
+
+		myNode = document.getElementById("mainTable");
+		while (myNode.firstChild) {
+   		  myNode.removeChild(myNode.firstChild);
+		}
+
+
+
+		request = getXmlHttpRequestObject();
+	  	request.onreadystatechange = renderAllTokens;
+		request.open("post", "allTokens", true);
+		request.setRequestHeader("Content-Type",
+		"application/x-www-form-urlencoded");
+		request.send();
+	}
+
+	function getInfo(queryVal)
+	{
+		queryVal=queryVal.trim();
+		var myNode = document.getElementById("mainBC");
+		while (myNode.firstChild) {
+    		myNode.removeChild(myNode.firstChild);
+		}
+
+		myNode = document.getElementById("mainTable");
+		while (myNode.firstChild) {
+   		  myNode.removeChild(myNode.firstChild);
+		}
+
+		request = getXmlHttpRequestObject();
+	  	request.onreadystatechange = renderSearch;
+		request.open("post", "searchquery", true);
+		request.setRequestHeader("Content-Type",
+		"application/x-www-form-urlencoded");
+		request.send("word=" + queryVal);
+	}
+
+	function renderAllTokens()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			//console.log(request.responseText);
+			if(metaFlag)
+				closeLastDiv();
+
+			var res=JSON.parse(request.responseText);
+
+			var table=document.getElementById("mainTable");
+			var tr=table.insertRow(-1);
+			tr.className="d-flex";
+			var th1=document.createElement("th");
+			th1.className="col-8";
+			var th2=document.createElement("th");
+			th2.className="col-2";
+			var th3=document.createElement("th");
+			th3.className="col-2";
+			
+			th1.innerHTML="Name";
+			th2.innerHTML="Count";
+			th3.innerHTML="Frequency (%)";
+			
+			tr.appendChild(th1);
+			tr.appendChild(th2);
+			tr.appendChild(th3);
+
+			var totalC=0,td1,td2,td3;
+
+			var tokenArr=[];
+
+			jQuery.each(res, function(name, y) {
+				
+			var tokenC=0;
+			for(var path in y)
+			{
+				tokenC+=y[path];
+			}
+			totalC+=tokenC;
+			tokenArr.push([name,tokenC]);
+
+			});
+			//console.log(tokenArr);
+			tokenArr.sort(function(a, b) {
+		    
+			return (b[1])-(a[1]);
+			
+		});
+			//console.log(tokenArr);
+			for(i=0;i<tokenArr.length;i++)
+			{
+				tr=table.insertRow(-1);
+				tr.className="d-flex";
+
+				td1=tr.insertCell(-1);
+				td1.className="col-8";
+				td1.innerHTML="<a href=\"#\" onclick=\"getInfo('"+tokenArr[i][0]+"');\"><i class=\"far fa-star\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+tokenArr[i][0]+"</a>";
+
+				td2=tr.insertCell(-1);
+				td2.className="col-2";
+				td2.innerHTML=tokenArr[i][1];
+
+				td3=tr.insertCell(-1);
+				td3.className="col-2";
+				td3.innerHTML=((tokenArr[i][1]/totalC)*100).toFixed(3) + "%";
+
+			}
+
+
+		}
+		else
+			console.log("not found");
+	}
+
+	
+
+	function search()
+	{
+		var query=document.getElementById("query");
+		var queryVal=query.value;
+		if(queryVal.trim=="")
+		{
+			alert("Empty Search Input");
+			return;
+		}
+		queryVal=queryVal.trim();
+		var myNode = document.getElementById("mainBC");
+		while (myNode.firstChild) {
+    		myNode.removeChild(myNode.firstChild);
+		}
+
+		myNode = document.getElementById("mainTable");
+		while (myNode.firstChild) {
+   		  myNode.removeChild(myNode.firstChild);
+		}
+
+
+
+		request = getXmlHttpRequestObject();
+	  	request.onreadystatechange = renderSearch;
+		request.open("post", "searchquery", true);
+		request.setRequestHeader("Content-Type",
+		"application/x-www-form-urlencoded");
+		request.send("word=" + queryVal);
+	}
+
+	function renderSearch()
+	{
+		if (request.readyState === 4 && request.status === 200) {
+
+			if(metaFlag)
+				closeLastDiv();
+
+			var res=JSON.parse(request.responseText);
+
+			res.sort(function(a,b){
+				return b.count-a.count;
+			});
+
+			console.log(res);
+
+			resArr=[];
+			var totalC=0;
+			for(i=0;i<res.length;i++)
+			{
+				resArr.push(res[i].fm);
+				totalC+=res[i].count;
+			}
+
+			var breadC=document.getElementById("mainBC");
+			var bc1=document.createElement("ol");
+			bc1.className="breadcrumb bg-light mb-0";
+			bc1.id="bc";
+			bc1.innerHTML="<li class=\"breadcrumb-item active\" aria-current=\"page\">Showing "+res.length+" Results</li>";
+			breadC.appendChild(bc1);
+
+			var table=document.getElementById("mainTable");
+			var tr=table.insertRow(-1);
+			tr.className="d-flex";
+			var th1=document.createElement("th");
+			th1.className="col-8";
+			var th2=document.createElement("th");
+			th2.className="col-2";
+			var th3=document.createElement("th");
+			th3.className="col-2";
+			
+			th1.innerHTML="Name";
+			th2.innerHTML="Count";
+			th3.innerHTML="Frequency";
+			
+			tr.appendChild(th1);
+			tr.appendChild(th2);
+			tr.appendChild(th3);
+			
+			for(i=0;i<resArr.length;i++)
+				{
+					console.log(resArr[i]);
+					tr=table.insertRow(-1);
+					tr.className="d-flex";
+					
+					var tabCell1 = tr.insertCell(-1);
+					tabCell1.className="col-8";
+					var tabCell2 = tr.insertCell(-1);
+					tabCell2.className="col-2";
+					var tabCell3 = tr.insertCell(-1);
+					tabCell3.className="col-2";
+					
+						tabCell1.innerHTML="<a href=\"#\" onclick=\"checkView("+(i)+")\"><i class=\"far fa-file\" aria-hidden=\"true\"></i>&nbsp;&nbsp;&nbsp;&nbsp;"+resArr[i].name+"</a> <div class=\"dropdown float-right\">"
+						+ 	 "<a class=\"btn btn-sm dropdown-toggle \" href=\"#\" role=\"button\" id=\"dropdownMenuLink\" data-toggle=\"dropdown\" aria-haspopup=\"true\" aria-expanded=\"false\">"
+					   	+	 "<i class=\"fas fa-ellipsis-h\"></i>"
+					  	+	 "</a>"
+					  	+	 "<div class=\"dropdown-menu customDrop3\" aria-labelledby=\"dropdownMenuLink\">"
+					 	+  	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"showLastDiv("+i+")\">Details</a>"
+						+	 "<a class=\"dropdown-item\" href=\"download?path="+resArr[i].path+"\">Download</a>"
+						+	 "<a class=\"dropdown-item\" href=\"#\" onclick=\"checkView("+(i)+")\">View</a>"+ checkTokens(i) +"</div></div>";
+						tabCell2.innerHTML=res[i].count;
+						
+					tabCell3.innerHTML=((res[i].count*1.0/totalC)*100).toFixed(3) +"%";
+				}
+
+		}
+		else
+			console.log("not found");
+	}
+
+	
+</script>
+
+
+</head>
+<body onload="setFoldersResource();">
+
+	<div class="alert alert-success alert-dismissible fade show mb-0"
+		id="notification1" style="display: none;" role="alert">
+		<strong>SUCCESS: </strong> Directory Indexed Successfully!
+		<button type="button" class="close" onclick="setNotification(1);"
+			aria-label="Close">
+			<span aria-hidden="true">&times;</span>
+		</button>
+	</div>
+
+
+	<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+
+		<span class="navbar-brand mb-0 h1">Directory Integrity Monitor</span>
+
+
+		<button class="navbar-toggler" type="button" data-toggle="collapse"
+			data-target="#navbarSupportedContent"
+			aria-controls="navbarSupportedContent" aria-expanded="false"
+			aria-label="Toggle navigation">
+			<span class="navbar-toggler-icon"></span>
+		</button>
+
+		<div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+			<form class="form-inline my-2 my-lg-0 text-center mx-auto" id="searchForm" onsubmit="event.preventDefault(); search();">
+				<input class="form-control mr-sm-2" size="60" type="search" id="query"
+					placeholder="Search" aria-label="Search">
+				<button class="btn btn-outline-info my-2 my-sm-0" type="submit">Search</button>
+			</form>
+
+
+
+			<div class="dropdown show mr-3">
+				<a class="dropdown-toggle" href="#" id="dropdownMenuLink"
+					style="color: #343a40;" data-toggle="dropdown" aria-haspopup="true"
+					aria-expanded="false"> <i class="material-icons"
+					style="color: white;"> add_box </i>
+				</a>
+
+				<div class="dropdown-menu customDrop2"
+					aria-labelledby="dropdownMenuLink">
+					<div class="input-group mb-1">
+						<input type="text" class="form-control" id="indexfilepath"
+							name="indexfilepath" placeholder="Add Index File Location"
+							aria-label="Recipient's username" aria-describedby="basic-addon2">
+						<div class="input-group-append">
+							<button class="btn btn-outline-info"
+								onclick="setIndexFileResource();" type="button">Add</button>
+						</div>
+					</div>
+					<div class="input-group">
+						<input type="text" class="form-control" id="word" name="word"
+							placeholder="Add Stop Word" aria-label="Recipient's username"
+							aria-describedby="basic-addon2">
+						<div class="input-group-append">
+							<button class="btn btn-outline-info" onclick="addStopWord();"
+								type="button">Add</button>
+						</div>
+					</div>
+				</div>
+
+			</div>
+			<a href="#" data-toggle="tooltip" id="notes" data-placement="bottom"
+				title="Notifications"><i class="material-icons mr-3"
+				style="color: white;"> notifications_none </i> </a> <a
+				href="#" data-toggle="tooltip" onclick="showAllTokens();"
+				data-placement="bottom" title="Shows all tokens"><i
+				class="material-icons" style="color: white;"> remove_red_eye </i></a>
+
+
+
+		</div>
+	</nav>
+
+
+	<!-- Modal -->
+	<div class="modal fade bd-example-modal-lg" id="exampleModalLong"
+		tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle"
+		aria-hidden="true">
+		<div class="modal-dialog modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title text-info" id="exampleModalLongTitle">Notifications</h5>
+					<button type="button" class="close" onclick="emptyModal();"
+						data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<ul class="list-group" id="noteList">
+
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+<div class="modal fade bd-example-modal-lg" id="contentModalLong"
+		tabindex="-1" role="dialog" aria-labelledby="exampleModalLongTitle"
+		aria-hidden="true">
+		<div class="modal-dialog modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title text-primary" id="contentModalLongTitle"></h5>
+					<button type="button" class="close"
+						data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body" id="content-modal">
+					
+				</div>
+			</div>
+		</div>
+	</div>
+
+<div class="modal fade " id="chartModalLong"
+		tabindex="-1" role="dialog" aria-labelledby="chartModalLongTitle"
+		aria-hidden="true">
+		<div class="modal-dialog" role="document" >
+		<!-- style="height: -webkit-fill-available;" -->
+			<div class="modal-content" >
+				<div class="modal-header">
+					<h5 class="modal-title text-primary" id="chartModalLongTitle"></h5>
+					<button type="button" class="close"
+						data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				 <!--style="height: 600px;width: 100%;"-->
+				<div class="modal-body p-0" id="chartContainer" style="height: 400px; width: 500px;">
+					
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div class="modal fade bd-example-modal-lg" id="cloudModal"
+		tabindex="-1" role="dialog" aria-labelledby="cloudModalTitle"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title text-primary" id="cloudModalTitle"></h5>
+					<button type="button" class="close"
+						data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body p-0" id="cloudContainer">
+					
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="container-fluid">
+		<div class="row mt-2 border-light border" style="height: 1000px;">
+
+			<div class="col-sm-2 border border-light">
+
+				<div class="card-header mt-2 bg-light">
+					Indexed Directories
+
+					<div class="dropdown show float-right">
+						<a class="dropdown-toggle" href="#" id="dropdownMenuLink"
+							data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							<i class="material-icons"> add_circle </i>
+						</a>
+
+						<div class="dropdown-menu customDrop"
+							aria-labelledby="dropdownMenuLink">
+							<div class="input-group mb-3">
+								<input type="text" class="form-control" id="path" name="path"
+									placeholder="Enter Directory Path"
+									aria-label="Recipient's username"
+									aria-describedby="basic-addon2">
+								<div class="input-group-append">
+									<button class="btn btn-outline-info"
+										onclick="setPathResource();" type="button">Index</button>
+								</div>
+							</div>
+						</div>
+					</div>
+
+
+					<!-- <a href="https://www.google.com/" class="float-right" data-toggle="tooltip"
+				data-placement="bottom" title="Add New Directory"><i
+				class="material-icons"> add_circle </i></a> -->
+
+				</div>
+				<ul class="list-group" id="indexedfolderslist">
+
+				</ul>
+			</div>
+
+			<div class="col border border-light">
+				<nav aria-label="breadcrumb" class="mt-2" id="mainBC"></nav>
+
+				<div class="container-fluid">
+					<table class="table" id="mainTable">
+
+
+					</table>
+				</div>
+			</div>
+
+			<div class="border border-light px-0" id="metaDiv" style="display: none;">
+				
+				
+				</div>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		$(function() {
+			$('[data-toggle="tooltip"]').tooltip({
+				trigger : 'hover'
+			});
+		});
+	</script>
+
+
+</body>
+</html>
