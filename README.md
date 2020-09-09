@@ -6,3 +6,9 @@
  - It can be used as an advanced remote storage drive.
  - Developed using Spring Boot, REST, AJAX & BootStrap.
  - It provides efficient indexing with watchers to monitor such that it takes only a few minutes to process 100s of GBs of data.
+
+Some screenshots of the application - 
+
+ - This software has the functionlaity to explore all kind of data about a file be it it's content or meta data like creation date, with different visualizations.
+
+![](ScreenShots/MetaData.gif)
